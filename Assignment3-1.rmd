@@ -253,6 +253,21 @@ alist(
 
 precis(mVIQ, cor=T)
 
+mSNVIQ=map(
+alist(
+    NonVerbalIQ ~ dnorm( mu , sigma ),
+    mu <- Intercept +
+        b_SocialIQ*SocialIQ,
+    Intercept ~ dnorm(0,10),
+    b_SocialIQ ~ dnorm(0,10),
+    sigma ~ dunif(0,10)
+)
+, data= d3 )
+
+precis(mSNVIQ, cor=T)
+##### ÆNDRER I RÆKKEFØLGEN ÆNDRER RESULTATERNE... HVORFOR????
+
+
 #Making model with scaled values
 
 
