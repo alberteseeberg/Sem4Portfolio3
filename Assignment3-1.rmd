@@ -222,66 +222,30 @@ scaledata$NonVerbalIQ=scale(scaledata$NonVerbalIQ)
 scaledata$VerbalIQ=scale(scaledata$VerbalIQ)
 scaledata$SocialIQ=scale(scaledata$SocialIQ)
 
-#Creating models to check correlations 
-glimmer(VerbalIQ~NonVerbalIQ, data=d3)
 
-mNVIQ=map(
-alist(
-    VerbalIQ ~ dnorm( mu , sigma ),
-    mu <- Intercept +
-        b_NonVerbalIQ*NonVerbalIQ,
-    Intercept ~ dnorm(0,10),
-    b_NonVerbalIQ ~ dnorm(0,15),
-    sigma ~ dunif(0,15)
-)
-, data= d3 )
-
-precis(mNVIQ, cor=T)
-
-glimmer(VerbalIQ~SocialIQ, data=d3)
-#Verbal IQ
-mVIQ=map(
-alist(
-    VerbalIQ ~ dnorm( mu , sigma ),
-    mu <- Intercept +
-        b_SocialIQ*SocialIQ,
-    Intercept ~ dnorm(0,10),
-    b_SocialIQ ~ dnorm(0,10),
-    sigma ~ dunif(0,10)
-)
-, data= d3 )
-
-precis(mVIQ, cor=T)
-
-mSNVIQ=map(
-alist(
-    NonVerbalIQ ~ dnorm( mu , sigma ),
-    mu <- Intercept +
-        b_SocialIQ*SocialIQ,
-    Intercept ~ dnorm(0,10),
-    b_SocialIQ ~ dnorm(0,10),
-    sigma ~ dunif(0,10)
-)
-, data= d3 )
-
-precis(mSNVIQ, cor=T)
-##### ÆNDRER I RÆKKEFØLGEN ÆNDRER RESULTATERNE... HVORFOR????
-
+cor.test(d3$NonVerbalIQ, d3$VerbalIQ)
+#0.676
+cor.test(d3$NonVerbalIQ, d3$SocialIQ)
+#0.375
+cor.test(d3$VerbalIQ, d3$SocialIQ)
+#0.610
 
 #Making model with scaled values
 
 
-glimmer(ADOS~SocialIQ+VerbalIQ, scaledata)
+glimmer(ADOS~SocialIQ+VerbalIQ+NonVerbalIQ, scaledata)
 
 mADOS=map(
 alist(
     ADOS ~ dnorm( mu , sigma ),
     mu <- Intercept +
         b_SocialIQ*SocialIQ +
-        b_VerbalIQ*VerbalIQ,
+        b_VerbalIQ*VerbalIQ +
+        b_NonVerbalIQ*NonVerbalIQ,
     Intercept ~ dnorm(0,5),
     b_SocialIQ ~ dnorm(0,5),
     b_VerbalIQ ~ dnorm(0,5),
+    b_NonVerbalIQ ~ dnorm(0,5),
     sigma ~ dunif(0,10)
 )
 , data = scaledata)
