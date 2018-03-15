@@ -20,6 +20,8 @@ The data consists of ChildID, gender, age, diagnosis (ASD), symptom severity (AD
 ```{r}
 library(tidyverse)
 library(rethinking)
+library(ggplot2)
+library(cowplot)
 setwd("~/Desktop/4. Semester/Computational models/Portfolio 3")
 
 ```
@@ -255,9 +257,152 @@ precis(mADOS, cor=T)
 plot(precis(mADOS))
 
 
+mSocial=map(
+alist(
+    SocialIQ ~ dnorm( mu , sigma ),
+    mu <- Intercept +
+        b_VerbalIQ*VerbalIQ +
+        b_NonVerbalIQ*NonVerbalIQ,
+    Intercept ~ dnorm(0,5),
+    b_VerbalIQ ~ dnorm(0,5),
+    b_NonVerbalIQ ~ dnorm(0,5),
+    sigma ~ dunif(0,10)
+)
+, data = scaledata)
+
+
+mVerbal=map(
+alist(
+    VerbalIQ ~ dnorm( mu , sigma ),
+    mu <- Intercept +
+        b_SocialIQ*SocialIQ +
+        b_NonVerbalIQ*NonVerbalIQ,
+    Intercept ~ dnorm(0,5),
+    b_SocialIQ ~ dnorm(0,5),
+    b_NonVerbalIQ ~ dnorm(0,5),
+    sigma ~ dunif(0,10)
+)
+, data = scaledata)
+
+
+mNonVerbal=map(
+alist(
+    NonVerbalIQ ~ dnorm( mu , sigma ),
+    mu <- Intercept +
+        b_VerbalIQ*VerbalIQ +
+        b_SocialIQ*SocialIQ,
+    Intercept ~ dnorm(0,5),
+    b_SocialIQ ~ dnorm(0,5),
+    b_VerbalIQ ~ dnorm(0,5),
+    sigma ~ dunif(0,10)
+)
+, data = scaledata)
+
+# compute expected value at MAP, for each State
+mu.social <- coef(mSocial)['Intercept'] + coef(mSocial)['b_NonVerbalIQ']*scaledata$NonVerbalIQ + coef(mSocial)['b_VerbalIQ']*scaledata$VerbalIQ
+# compute residual for each State
+m.resid.social <- scaledata$SocialIQ - mu.social
+
+
+socialplot = ggplot(scaledata, aes(y=ADOS, x=m.resid.social)) +geom_smooth(method='lm') +geom_point()+xlab("SocialIQ Residuals") 
+
+# compute expected value at MAP, for each State
+mu.verbal <- coef(mVerbal)['Intercept'] + coef(mVerbal)['b_NonVerbalIQ']*scaledata$NonVerbalIQ + coef(mVerbal)['b_SocialIQ']*scaledata$SocialIQ
+# compute residual for each State
+m.resid.verbal <- scaledata$VerbalIQ - mu.verbal
+
+verbalplot = ggplot(scaledata, aes(y=ADOS, x=m.resid.verbal)) +geom_smooth(method='lm') +geom_point()+xlab("VerbalIQ Residuals") 
+
+mu.nonverbal <- coef(mNonVerbal)['Intercept'] + coef(mNonVerbal)['b_VerbalIQ']*scaledata$VerbalIQ + coef(mNonVerbal)['b_SocialIQ']*scaledata$SocialIQ
+# compute residual for each State
+m.resid.nonverbal <- scaledata$NonVerbalIQ - mu.nonverbal
+
+nonverbalplot = ggplot(scaledata, aes(y=ADOS, x=m.resid.nonverbal)) +geom_smooth(method='lm') +geom_point()+xlab("NonVerbalIQ Residuals") 
+
+plot_grid(socialplot,verbalplot,nonverbalplot)
+
+# plot( SocialIQ ~ NonVerbalIQ, scaledata , col=rangi2 )
+# abline( mADOS )
+# # loop over States
+# for ( i in 1:length(m.resid) ) {
+#     x <- scaledata$NonVerbalIQ[i] # x location of line segment
+#     y <- scaledata$SocialIQ[i] # observed endpoint of line segment
+#     # draw the line segment
+#     lines( c(x,x) , c(mu[i],y) , lwd=0.5 , col=col.alpha("black",0.7) )
+# }
+
+#Quality assessment 
+
+mu <- link( mADOS )
+# summarize samples across cases
+mu.mean <- apply( mu , 2 , mean )
+mu.HPDI <- apply( mu , 2 , HPDI )
+# simulate observations
+# again no new data, so uses original data
+ADOS.sim <- sim( mADOS , n=1e4 )
+ADOS.HPDI <- apply( ADOS.sim , 2 , HPDI )
+
+#plotting
+plot( mu.mean ~ scaledata$ADOS , col=rangi2 , ylim=range(mu.HPDI) ,
+xlab="Observed ADOS" , ylab="Predicted ADOS" )
+abline( a=0 , b=1 , lty=2 )
+for ( i in 1:nrow(scaledata) )
+lines( rep(scaledata$ADOS[i],2) , c(mu.HPDI[1,i],mu.HPDI[2,i]) ,
+col=rangi2 )
+
 ```
 
 3. Let's now include also the TD children. Does it make sense to ask whether IQ and ADOS are related? Motivate your answer. In any case, if you wanted to build a model to answer that question, which model would you build? Run the model, assess its quality, write a few lines interpreting the results.
+
+```{r}
+scaledata1=d2
+scaledata1$NonVerbalIQ=scale(scaledata1$NonVerbalIQ)
+scaledata1$VerbalIQ=scale(scaledata1$VerbalIQ)
+scaledata1$SocialIQ=scale(scaledata1$SocialIQ)
+
+scaledata1=na.omit(scaledata1)
+
+glimmer(ADOS~SocialIQ+VerbalIQ+NonVerbalIQ, scaledata1)
+
+mADOS1=map(
+alist(
+    ADOS ~ dnorm( mu , sigma ),
+    mu <- Intercept +
+        b_SocialIQ*SocialIQ +
+        b_VerbalIQ*VerbalIQ +
+        b_NonVerbalIQ*NonVerbalIQ,
+    Intercept ~ dnorm(0,5),
+    b_SocialIQ ~ dnorm(0,5),
+    b_VerbalIQ ~ dnorm(0,5),
+    b_NonVerbalIQ ~ dnorm(0,5),
+    sigma ~ dunif(0,10)
+)
+, data = scaledata1)
+
+precis(mADOS1, cor=T)
+
+plot(precis(mADOS1))
+
+#Quality assessment 
+
+mu1 <- link( mADOS1 )
+# summarize samples across cases
+mu.mean1 <- apply( mu1, 2 , mean )
+mu.HPDI1 <- apply( mu1 , 2 , HPDI )
+# simulate observations
+# again no new data, so uses original data
+ADOS.sim1 <- sim( mADOS1 , n=1e4 )
+ADOS.HPDI1 <- apply( ADOS.sim1 , 2 , HPDI )
+
+#plotting
+plot( mu.mean1 ~ scaledata1$ADOS , col=rangi2 , ylim=range(mu.HPDI1) ,
+xlab="Observed ADOS" , ylab="Predicted ADOS" )
+abline( a=0 , b=1 , lty=2 )
+for ( i in 1:nrow(scaledata1) )
+lines( rep(scaledata1$ADOS[i],2) , c(mu.HPDI1[1,i],mu.HPDI1[2,i]) ,
+col=rangi2 )
+
+```
 
 4. Let's discuss contents:
 4.1. You have three scores for IQ, do they show shared variance? Is that the same in TD and ASD? What does that tell us about IQ?
